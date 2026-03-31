@@ -1,0 +1,76 @@
+networks:
+  cmdb_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  git_repo:
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cmdb
+      POSTGRES_USER: cmdb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cmdb_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cmdb -d cmdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://cmdb:${POSTGRES_PASSWORD}@postgres:5432/cmdb
+      GIT_REPO_PATH: /var/cmdb/repo
+      GIT_USER_NAME: "CMDB API"
+      GIT_USER_EMAIL: "cmdb@localhost"
+      SECRET_KEY: ${API_SECRET_KEY}
+      LOG_LEVEL: INFO
+    volumes:
+      - git_repo:/var/cmdb/repo
+    networks:
+      - cmdb_net
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      CMDB_API_URL: http://api:5000
+      AGENT_ID: ${AGENT_ID}
+      AGENT_HOSTNAME: ${AGENT_HOSTNAME:-}
+      LOG_LEVEL: INFO
+      MONITORED_PATHS: /monitored
+    volumes:
+      # Mount host paths into /monitored read-only.
+      # Adjust these to the paths you want to track on your host.
+      - /etc:/monitored/etc:ro
+    networks:
+      - cmdb_net

@@ -1,0 +1,11 @@
+api:
+  base_url: "${CMDB_API_URL}"
+  timeout_seconds: 10
+
+agent:
+  poll_interval_seconds: 60
+  use_watchdog: true
+  max_file_size_mb: 10
+
+monitored_paths:
+  - /monitored
