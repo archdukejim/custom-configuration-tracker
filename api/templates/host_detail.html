@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ hostname }} — Config Tracker{% endblock %}
+
+{% block breadcrumb %}
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.dashboard') }}" class="text-slate-300 hover:text-white text-sm">Hosts</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <span class="text-slate-200 text-sm font-medium">{{ hostname }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-end justify-between">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">{{ hostname }}</h1>
+    <p class="text-sm text-gray-500 mt-0.5">Last seen {{ host.last_seen | timeago }}</p>
+  </div>
+  <div class="text-sm text-gray-500">
+    <span id="fileCount" class="font-semibold text-gray-800">{{ files | length }}</span> files tracked
+  </div>
+</div>
+
+{% if files %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+    <input type="text" id="fileSearch" placeholder="Filter by path…"
+           oninput="filterFiles(this.value)"
+           class="w-80 text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+  </div>
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-200 text-left">
+        <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">File Path</th>
+        <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Last Changed</th>
+        <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Snapshots</th>
+        <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Size</th>
+        <th class="px-5 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100" id="fileTable">
+      {% for f in files %}
+      <tr class="hover:bg-gray-50 transition-colors duration-75" data-path="{{ f.file_path }}">
+        <td class="px-5 py-3">
+          <span class="font-mono text-xs text-gray-800">{{ f.file_path }}</span>
+        </td>
+        <td class="px-5 py-3 text-gray-500 text-xs">
+          {% if f.last_snapshot_at %}{{ f.last_snapshot_at | timeago }}{% else %}—{% endif %}
+        </td>
+        <td class="px-5 py-3 text-right text-gray-600">{{ f.snapshot_count }}</td>
+        <td class="px-5 py-3 text-right text-gray-500 font-mono text-xs">{{ f.size | filesizeformat }}</td>
+        <td class="px-5 py-3 text-right">
+          <a href="{{ url_for('web.file_history', hostname=hostname, file_path=f.file_path) }}"
+             class="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline">
+            History →
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div id="emptyFilter" class="hidden px-5 py-8 text-center text-sm text-gray-400">
+    No files match your filter.
+  </div>
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-16 text-center">
+  <p class="text-gray-500 font-medium">No files tracked yet</p>
+  <p class="text-gray-400 text-sm mt-1">The agent will submit files as it scans monitored paths.</p>
+</div>
+{% endif %}
+
+<script>
+function filterFiles(q) {
+  q = q.toLowerCase();
+  const rows = document.querySelectorAll('#fileTable tr[data-path]');
+  let visible = 0;
+  rows.forEach(row => {
+    const match = row.dataset.path.toLowerCase().includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('fileCount').textContent = visible;
+  document.getElementById('emptyFilter').classList.toggle('hidden', visible > 0);
+}
+</script>
+{% endblock %}

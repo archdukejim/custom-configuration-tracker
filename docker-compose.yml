@@ -4,7 +4,6 @@ networks:
 
 volumes:
   postgres_data:
-  git_repo:
 
 services:
 
@@ -36,13 +35,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://cmdb:${POSTGRES_PASSWORD}@postgres:5432/cmdb
-      GIT_REPO_PATH: /var/cmdb/repo
-      GIT_USER_NAME: "CMDB API"
-      GIT_USER_EMAIL: "cmdb@localhost"
       SECRET_KEY: ${API_SECRET_KEY}
       LOG_LEVEL: INFO
-    volumes:
-      - git_repo:/var/cmdb/repo
     networks:
       - cmdb_net
     ports:

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Config Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-end justify-between">
+  <h1 class="text-xl font-semibold text-gray-900">Hosts</h1>
+  <div class="flex gap-6 text-sm text-gray-500">
+    <span><span class="font-semibold text-gray-800">{{ stats.hosts }}</span> hosts</span>
+    <span><span class="font-semibold text-gray-800">{{ stats.files }}</span> files tracked</span>
+    <span><span class="font-semibold text-gray-800">{{ stats.snapshots }}</span> total snapshots</span>
+  </div>
+</div>
+
+{% if hosts %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gray-50 border-b border-gray-200 text-left">
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Host</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Last Seen</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Files</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Changes (24h)</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Status</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for row in hosts %}
+      <tr class="hover:bg-gray-50 transition-colors duration-75">
+        <td class="px-6 py-4">
+          <a href="{{ url_for('web.host_detail', hostname=row.host.hostname) }}"
+             class="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+            {{ row.host.hostname }}
+          </a>
+        </td>
+        <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+          {{ row.host.last_seen | timeago }}
+        </td>
+        <td class="px-6 py-4 text-right text-gray-700">{{ row.file_count }}</td>
+        <td class="px-6 py-4 text-right">
+          {% if row.changes_24h > 0 %}
+            <span class="font-semibold text-blue-600">{{ row.changes_24h }}</span>
+          {% else %}
+            <span class="text-gray-400">0</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-4">
+          {% if row.status == 'active' %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>active
+            </span>
+          {% else %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+              <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>inactive
+            </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-16 text-center">
+  <svg class="w-10 h-10 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+      d="M5 12h14M12 5l7 7-7 7"/>
+  </svg>
+  <p class="text-gray-500 font-medium">No hosts registered yet</p>
+  <p class="text-gray-400 text-sm mt-1">Start an agent to begin tracking configuration files.</p>
+</div>
+{% endif %}
+{% endblock %}

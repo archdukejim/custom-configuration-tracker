@@ -169,7 +169,7 @@ class Agent:
         if status == "unchanged":
             logging.debug("Server confirmed unchanged: %s", path)
         else:
-            logging.info("Submitted %s → commit %s", path, result.get("commit_sha"))
+            logging.info("Submitted %s → hash %s", path, result.get("content_hash", "")[:12])
 
         self.hash_cache[file_path_str] = file_hash
 

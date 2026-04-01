@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Diff: {{ file_path }} — Config Tracker{% endblock %}
+
+{% block breadcrumb %}
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.dashboard') }}" class="text-slate-300 hover:text-white text-sm">Hosts</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.host_detail', hostname=hostname) }}" class="text-slate-300 hover:text-white text-sm">{{ hostname }}</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.file_history', hostname=hostname, file_path=file_path) }}"
+     class="text-slate-300 hover:text-white text-sm font-mono">{{ file_path }}</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <span class="text-slate-200 text-sm">Diff</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5">
+  <h1 class="text-xl font-semibold text-gray-900">Diff</h1>
+  <p class="font-mono text-sm text-gray-500 mt-1">{{ file_path }}</p>
+</div>
+
+<div class="mb-4 flex items-center gap-4 text-sm">
+  <div class="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+    <span class="w-2.5 h-2.5 rounded-sm bg-red-400"></span>
+    <span class="text-gray-500">from</span>
+    <span class="font-mono text-xs text-gray-700">{{ from_snap.content_hash[:12] }}</span>
+    <span class="text-gray-400">·</span>
+    <span class="text-gray-500 text-xs">{{ from_snap.submitted_at | timeago }}</span>
+    <a href="{{ url_for('web.file_content', hostname=hostname, file_path=file_path, snapshot_id=from_snap.id) }}"
+       class="ml-1 text-xs text-blue-500 hover:underline">view</a>
+  </div>
+  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+  </svg>
+  <div class="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+    <span class="w-2.5 h-2.5 rounded-sm bg-emerald-400"></span>
+    <span class="text-gray-500">to</span>
+    <span class="font-mono text-xs text-gray-700">{{ to_snap.content_hash[:12] }}</span>
+    <span class="text-gray-400">·</span>
+    <span class="text-gray-500 text-xs">{{ to_snap.submitted_at | timeago }}</span>
+    <a href="{{ url_for('web.file_content', hostname=hostname, file_path=file_path, snapshot_id=to_snap.id) }}"
+       class="ml-1 text-xs text-blue-500 hover:underline">view</a>
+  </div>
+</div>
+
+{% if diff_lines %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <div class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+    <span class="text-xs text-gray-500 font-mono">{{ file_path }}</span>
+    <div class="flex items-center gap-3 text-xs">
+      {% set adds = diff_lines | selectattr('type', 'eq', 'add') | list | length %}
+      {% set removes = diff_lines | selectattr('type', 'eq', 'remove') | list | length %}
+      <span class="text-emerald-600 font-medium">+{{ adds }}</span>
+      <span class="text-red-500 font-medium">-{{ removes }}</span>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full font-mono text-xs border-collapse">
+      <colgroup>
+        <col class="w-10">
+        <col class="w-10">
+        <col>
+      </colgroup>
+      <tbody>
+        {% for line in diff_lines %}
+          {% if line.type == 'meta' %}
+            <tr class="bg-slate-800">
+              <td class="px-3 py-1 text-slate-500 text-right select-none border-r border-slate-700"></td>
+              <td class="px-3 py-1 text-slate-500 text-right select-none border-r border-slate-700"></td>
+              <td class="px-4 py-1 text-slate-300">{{ line.content }}</td>
+            </tr>
+          {% elif line.type == 'hunk' %}
+            <tr class="bg-blue-50 border-y border-blue-100">
+              <td class="px-3 py-1 text-blue-300 text-right select-none border-r border-blue-200"></td>
+              <td class="px-3 py-1 text-blue-300 text-right select-none border-r border-blue-200"></td>
+              <td class="px-4 py-1 text-blue-600">{{ line.content }}</td>
+            </tr>
+          {% elif line.type == 'add' %}
+            <tr class="bg-emerald-50 hover:bg-emerald-100">
+              <td class="px-3 py-0.5 text-gray-300 text-right select-none border-r border-emerald-200 w-10"></td>
+              <td class="px-3 py-0.5 text-emerald-600 text-right select-none border-r border-emerald-200 w-10">{{ line.line_new }}</td>
+              <td class="px-4 py-0.5 text-emerald-800 whitespace-pre">{{ line.content }}</td>
+            </tr>
+          {% elif line.type == 'remove' %}
+            <tr class="bg-red-50 hover:bg-red-100">
+              <td class="px-3 py-0.5 text-red-400 text-right select-none border-r border-red-200 w-10">{{ line.line_old }}</td>
+              <td class="px-3 py-0.5 text-gray-300 text-right select-none border-r border-red-200 w-10"></td>
+              <td class="px-4 py-0.5 text-red-800 whitespace-pre">{{ line.content }}</td>
+            </tr>
+          {% elif line.type == 'context' %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-3 py-0.5 text-gray-300 text-right select-none border-r border-gray-100 w-10">{{ line.line_old }}</td>
+              <td class="px-3 py-0.5 text-gray-300 text-right select-none border-r border-gray-100 w-10">{{ line.line_new }}</td>
+              <td class="px-4 py-0.5 text-gray-600 whitespace-pre">{{ line.content }}</td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+  <p class="text-gray-500 font-medium">No differences</p>
+  <p class="text-gray-400 text-sm mt-1">The two snapshots have identical content.</p>
+</div>
+{% endif %}
+{% endblock %}

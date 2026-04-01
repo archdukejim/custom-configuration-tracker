@@ -40,14 +40,34 @@ class ConfigFile(db.Model):
     __table_args__ = (db.UniqueConstraint("host_id", "file_path"),)
 
     host = db.relationship("Host", back_populates="config_files")
-    snapshots = db.relationship("Snapshot", back_populates="config_file", cascade="all, delete-orphan",
-                                order_by="Snapshot.submitted_at.desc()")
+    snapshots = db.relationship(
+        "Snapshot", back_populates="config_file", cascade="all, delete-orphan",
+        order_by="Snapshot.submitted_at.desc()",
+    )
 
     def to_dict(self):
         return {
             "id": str(self.id),
             "host_id": str(self.host_id),
             "file_path": self.file_path,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+class FileContent(db.Model):
+    __tablename__ = "file_contents"
+
+    hash = db.Column(db.Text, primary_key=True)
+    content = db.Column(db.LargeBinary, nullable=False)
+    size = db.Column(db.BigInteger, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    snapshots = db.relationship("Snapshot", back_populates="file_content")
+
+    def to_dict(self):
+        return {
+            "hash": self.hash,
+            "size": self.size,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -60,10 +80,10 @@ class Snapshot(db.Model):
     submitted_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     file_hash = db.Column(db.Text, nullable=False)
     file_size = db.Column(db.BigInteger, nullable=False)
-    commit_sha = db.Column(db.Text)
-    commit_message = db.Column(db.Text)
+    content_hash = db.Column(db.Text, db.ForeignKey("file_contents.hash"), nullable=False)
 
     config_file = db.relationship("ConfigFile", back_populates="snapshots")
+    file_content = db.relationship("FileContent", back_populates="snapshots")
 
     def to_dict(self):
         return {
@@ -72,6 +92,5 @@ class Snapshot(db.Model):
             "submitted_at": self.submitted_at.isoformat(),
             "file_hash": self.file_hash,
             "file_size": self.file_size,
-            "commit_sha": self.commit_sha,
-            "commit_message": self.commit_message,
+            "content_hash": self.content_hash,
         }

@@ -1,13 +1,55 @@
 import os
 import logging
+from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify
 from models import db
-from git_manager import GitManager
-from routes import hosts_bp, configs_bp
+from routes import hosts_bp, configs_bp, web_bp
+
+
+def _timeago(dt):
+    if dt is None:
+        return "never"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    seconds = int((datetime.now(timezone.utc) - dt).total_seconds())
+    if seconds < 0:
+        return "just now"
+    if seconds < 60:
+        return "just now" if seconds < 5 else f"{seconds}s ago"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h ago"
+    days = hours // 24
+    if days < 7:
+        return f"{days}d ago"
+    weeks = days // 7
+    if weeks < 4:
+        return f"{weeks}w ago"
+    months = days // 30
+    if months < 12:
+        return f"{months}mo ago"
+    return f"{days // 365}y ago"
+
+
+def _filesizeformat(size_bytes):
+    if size_bytes is None:
+        return "0 B"
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    kb = size_bytes / 1024
+    if kb < 1024:
+        return f"{kb:.1f} KB"
+    mb = kb / 1024
+    if mb < 1024:
+        return f"{mb:.1f} MB"
+    return f"{mb / 1024:.2f} GB"
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder="templates")
 
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
@@ -18,13 +60,12 @@ def create_app():
 
     db.init_app(app)
 
-    git_repo_path = os.environ.get("GIT_REPO_PATH", "/var/cmdb/repo")
-    git_user_name = os.environ.get("GIT_USER_NAME", "CMDB API")
-    git_user_email = os.environ.get("GIT_USER_EMAIL", "cmdb@localhost")
-    app.extensions["git_manager"] = GitManager(git_repo_path, git_user_name, git_user_email)
-
     app.register_blueprint(hosts_bp)
     app.register_blueprint(configs_bp)
+    app.register_blueprint(web_bp)
+
+    app.jinja_env.filters["timeago"] = _timeago
+    app.jinja_env.filters["filesizeformat"] = _filesizeformat
 
     @app.route("/api/v1/health")
     def health():
@@ -34,15 +75,8 @@ def create_app():
         except Exception:
             db_ok = False
 
-        git_ok = app.extensions["git_manager"].health_check()
-
-        status = "ok" if db_ok and git_ok else "degraded"
-        code = 200 if status == "ok" else 503
-        return jsonify({
-            "status": status,
-            "db": "ok" if db_ok else "error",
-            "git": "ok" if git_ok else "error",
-        }), code
+        status = "ok" if db_ok else "degraded"
+        return jsonify({"status": status, "db": "ok" if db_ok else "error"}), 200 if db_ok else 503
 
     return app
 

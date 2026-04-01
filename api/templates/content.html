@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Content: {{ file_path }} — Config Tracker{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+{% endblock %}
+
+{% block breadcrumb %}
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.dashboard') }}" class="text-slate-300 hover:text-white text-sm">Hosts</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.host_detail', hostname=hostname) }}" class="text-slate-300 hover:text-white text-sm">{{ hostname }}</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.file_history', hostname=hostname, file_path=file_path) }}"
+     class="text-slate-300 hover:text-white text-sm font-mono">{{ file_path }}</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <span class="text-slate-200 text-sm">Content</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-start justify-between">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">File Content</h1>
+    <p class="font-mono text-sm text-gray-500 mt-1">{{ file_path }}</p>
+  </div>
+  <a href="{{ url_for('web.file_history', hostname=hostname, file_path=file_path) }}"
+     class="text-sm text-gray-500 hover:text-gray-800 hover:underline mt-1">
+    ← Back to history
+  </a>
+</div>
+
+<div class="mb-4 flex items-center gap-6 text-sm text-gray-500">
+  <div class="flex items-center gap-1.5">
+    <span class="text-gray-400">snapshot</span>
+    <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700" title="{{ snapshot.content_hash }}">
+      {{ snapshot.content_hash[:12] }}
+    </span>
+  </div>
+  <div>{{ snapshot.submitted_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</div>
+  <div>{{ snapshot.size | filesizeformat }}</div>
+  {% if language != 'none' %}
+  <div class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-mono">{{ language }}</div>
+  {% endif %}
+</div>
+
+{% if is_binary %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+  <svg class="w-8 h-8 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+  </svg>
+  <p class="text-gray-500 font-medium">Binary file</p>
+  <p class="text-gray-400 text-sm mt-1">{{ snapshot.size | filesizeformat }}</p>
+  <a href="{{ url_for('configs.file_content', hostname=hostname, file_path=file_path, snapshot_id=snapshot.id) }}"
+     class="mt-4 inline-block text-sm text-blue-600 hover:underline">
+    Download raw content
+  </a>
+</div>
+
+{% else %}
+<div class="rounded-xl overflow-hidden shadow-sm border border-gray-200">
+  <pre class="m-0 rounded-xl overflow-x-auto max-h-[75vh]"><code class="language-{{ language }}" style="font-size: 0.75rem; line-height: 1.5;">{{ content_text }}</code></pre>
+</div>
+{% endif %}
+{% endblock %}

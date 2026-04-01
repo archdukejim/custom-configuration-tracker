@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}History: {{ file_path }} — Config Tracker{% endblock %}
+
+{% block breadcrumb %}
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.dashboard') }}" class="text-slate-300 hover:text-white text-sm">Hosts</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <a href="{{ url_for('web.host_detail', hostname=hostname) }}" class="text-slate-300 hover:text-white text-sm">{{ hostname }}</a>
+  <span class="text-slate-600 mx-1">›</span>
+  <span class="text-slate-200 text-sm font-mono">{{ file_path }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5">
+  <h1 class="text-xl font-semibold text-gray-900">Snapshot History</h1>
+  <p class="font-mono text-sm text-gray-500 mt-1">{{ file_path }}</p>
+</div>
+
+{% if snapshots %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gray-50 border-b border-gray-200 text-left">
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">#</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Submitted</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Hash</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Size</th>
+        <th class="px-6 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for snap in snapshots %}
+      {% set is_latest = loop.first %}
+      {% set is_oldest = loop.last %}
+      {% set prev = snapshots[loop.index0 + 1] if not loop.last else none %}
+      <tr class="hover:bg-gray-50 transition-colors duration-75">
+        <td class="px-6 py-3 text-gray-400 text-xs font-mono">
+          {{ snapshots | length - loop.index0 }}
+          {% if is_latest %}
+            <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">latest</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-3">
+          <span class="text-gray-800">{{ snap.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+          <span class="text-gray-400 text-xs ml-2">{{ snap.submitted_at | timeago }}</span>
+        </td>
+        <td class="px-6 py-3">
+          <span class="font-mono text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded" title="{{ snap.content_hash }}">
+            {{ snap.content_hash[:12] }}
+          </span>
+        </td>
+        <td class="px-6 py-3 text-right font-mono text-xs text-gray-500">
+          {{ snap.size | filesizeformat }}
+        </td>
+        <td class="px-6 py-3 text-right">
+          <div class="flex items-center justify-end gap-3">
+            <a href="{{ url_for('web.file_content', hostname=hostname, file_path=file_path, snapshot_id=snap.id) }}"
+               class="text-xs text-gray-500 hover:text-gray-800 font-medium hover:underline">
+              View
+            </a>
+            {% if prev %}
+            <a href="{{ url_for('web.file_diff', hostname=hostname, file_path=file_path, from_snapshot_id=prev.id, to_snapshot_id=snap.id) }}"
+               class="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline">
+              Diff vs prev
+            </a>
+            {% else %}
+            <span class="text-xs text-gray-300">first snapshot</span>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+  <p class="text-gray-500">No snapshots recorded yet.</p>
+</div>
+{% endif %}
+{% endblock %}
