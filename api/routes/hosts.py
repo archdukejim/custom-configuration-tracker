@@ -59,3 +59,19 @@ def register_host():
     db.session.commit()
 
     return jsonify({"host_id": str(host.id), "hostname": host.hostname}), 200
+
+
+@hosts_bp.route("/<hostname>/heartbeat", methods=["POST"])
+def heartbeat(hostname):
+    body = request.get_json(force=True, silent=True) or {}
+    agent_id = body.get("agent_id", "").strip()
+    if not agent_id:
+        return jsonify({"error": "agent_id is required"}), 400
+
+    host = Host.query.filter_by(hostname=hostname, agent_id=agent_id).first()
+    if not host:
+        return jsonify({"error": "Host not found or agent_id mismatch"}), 404
+
+    host.last_seen = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify({"ok": True}), 200

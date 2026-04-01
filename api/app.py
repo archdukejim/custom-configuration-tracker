@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify
 from models import db
-from routes import hosts_bp, configs_bp, web_bp
+from routes import hosts_bp, configs_bp, web_bp, admin_bp
 
 
 def _timeago(dt):
@@ -63,6 +63,7 @@ def create_app():
     app.register_blueprint(hosts_bp)
     app.register_blueprint(configs_bp)
     app.register_blueprint(web_bp)
+    app.register_blueprint(admin_bp)
 
     app.jinja_env.filters["timeago"] = _timeago
     app.jinja_env.filters["filesizeformat"] = _filesizeformat

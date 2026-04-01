@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from flask import Blueprint, render_template, request, abort
+from flask import Blueprint, render_template, request, abort, url_for
 from sqlalchemy import func
 from models import db, Host, ConfigFile, Snapshot, FileContent
 from diff_utils import compute_unified_diff, parse_diff_lines
@@ -50,12 +50,30 @@ def dashboard():
 @web_bp.route("/hosts/<hostname>")
 def host_detail(hostname):
     host = Host.query.filter_by(hostname=hostname).first_or_404()
+
+    q = request.args.get("q", "").strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(10, min(int(request.args.get("per_page", 100)), 500))
+    except ValueError:
+        page, per_page = 1, 100
+
+    base_query = ConfigFile.query.filter_by(host_id=host.id)
+    if q:
+        base_query = base_query.filter(ConfigFile.file_path.ilike(f"%{q}%"))
+
+    total_files = base_query.count()
+    pages = max(1, (total_files + per_page - 1) // per_page)
+    page = min(page, pages)
+
     config_files = (
-        ConfigFile.query
-        .filter_by(host_id=host.id)
+        base_query
         .order_by(ConfigFile.file_path)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
         .all()
     )
+
     files = []
     for cf in config_files:
         last = (
@@ -76,7 +94,17 @@ def host_detail(hostname):
             "size": last.file_size if last else 0,
         })
 
-    return render_template("host_detail.html", host=host, hostname=hostname, files=files)
+    pagination = {
+        "page": page,
+        "pages": pages,
+        "per_page": per_page,
+        "total": total_files,
+        "prev_url": url_for("web.host_detail", hostname=hostname, q=q, page=page - 1) if page > 1 else None,
+        "next_url": url_for("web.host_detail", hostname=hostname, q=q, page=page + 1) if page < pages else None,
+    }
+
+    return render_template("host_detail.html", host=host, hostname=hostname, files=files,
+                           q=q, pagination=pagination)
 
 
 @web_bp.route("/hosts/<hostname>/history")
@@ -85,26 +113,61 @@ def file_history(hostname):
     if not file_path:
         abort(400)
 
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(10, min(int(request.args.get("per_page", 50)), 200))
+    except ValueError:
+        page, per_page = 1, 50
+
     host = Host.query.filter_by(hostname=hostname).first_or_404()
     cf = ConfigFile.query.filter_by(host_id=host.id, file_path=file_path).first_or_404()
 
-    snaps_raw = (
+    total = Snapshot.query.filter_by(config_file_id=cf.id).count()
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, pages)
+    offset = (page - 1) * per_page
+
+    # Fetch one extra row to resolve the "diff vs prev" link for the last visible snapshot
+    # across page boundaries without an extra query.
+    raw = (
         Snapshot.query
         .filter_by(config_file_id=cf.id)
         .order_by(Snapshot.submitted_at.desc())
-        .limit(100)
+        .offset(offset)
+        .limit(per_page + 1)
         .all()
     )
-    snapshots = [
-        {
+    display = raw[:per_page]
+    boundary = raw[per_page] if len(raw) > per_page else None
+
+    snapshots = []
+    for i, s in enumerate(display):
+        if i + 1 < len(display):
+            prev_id = str(display[i + 1].id)
+        elif boundary:
+            prev_id = str(boundary.id)
+        else:
+            prev_id = None
+        snapshots.append({
             "id": str(s.id),
             "submitted_at": s.submitted_at,
             "content_hash": s.content_hash,
             "size": s.file_size,
-        }
-        for s in snaps_raw
-    ]
-    return render_template("history.html", hostname=hostname, file_path=file_path, snapshots=snapshots)
+            "prev_snapshot_id": prev_id,
+            "number": total - offset - i,
+        })
+
+    pagination = {
+        "page": page,
+        "pages": pages,
+        "per_page": per_page,
+        "total": total,
+        "prev_url": url_for("web.file_history", hostname=hostname, file_path=file_path, page=page - 1) if page > 1 else None,
+        "next_url": url_for("web.file_history", hostname=hostname, file_path=file_path, page=page + 1) if page < pages else None,
+    }
+
+    return render_template("history.html", hostname=hostname, file_path=file_path,
+                           snapshots=snapshots, pagination=pagination)
 
 
 @web_bp.route("/hosts/<hostname>/diff")

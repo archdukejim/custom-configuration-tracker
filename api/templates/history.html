@@ -12,9 +12,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="mb-5">
-  <h1 class="text-xl font-semibold text-gray-900">Snapshot History</h1>
-  <p class="font-mono text-sm text-gray-500 mt-1">{{ file_path }}</p>
+<div class="mb-5 flex items-end justify-between">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">Snapshot History</h1>
+    <p class="font-mono text-sm text-gray-500 mt-1">{{ file_path }}</p>
+  </div>
+  <div class="text-sm text-gray-500">
+    <span class="font-semibold text-gray-800">{{ pagination.total }}</span> snapshots
+  </div>
 </div>
 
 {% if snapshots %}
@@ -31,13 +36,10 @@
     </thead>
     <tbody class="divide-y divide-gray-100">
       {% for snap in snapshots %}
-      {% set is_latest = loop.first %}
-      {% set is_oldest = loop.last %}
-      {% set prev = snapshots[loop.index0 + 1] if not loop.last else none %}
       <tr class="hover:bg-gray-50 transition-colors duration-75">
         <td class="px-6 py-3 text-gray-400 text-xs font-mono">
-          {{ snapshots | length - loop.index0 }}
-          {% if is_latest %}
+          {{ snap.number }}
+          {% if snap.number == pagination.total %}
             <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">latest</span>
           {% endif %}
         </td>
@@ -46,24 +48,17 @@
           <span class="text-gray-400 text-xs ml-2">{{ snap.submitted_at | timeago }}</span>
         </td>
         <td class="px-6 py-3">
-          <span class="font-mono text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded" title="{{ snap.content_hash }}">
-            {{ snap.content_hash[:12] }}
-          </span>
+          <span class="font-mono text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded"
+                title="{{ snap.content_hash }}">{{ snap.content_hash[:12] }}</span>
         </td>
-        <td class="px-6 py-3 text-right font-mono text-xs text-gray-500">
-          {{ snap.size | filesizeformat }}
-        </td>
+        <td class="px-6 py-3 text-right font-mono text-xs text-gray-500">{{ snap.size | filesizeformat }}</td>
         <td class="px-6 py-3 text-right">
           <div class="flex items-center justify-end gap-3">
             <a href="{{ url_for('web.file_content', hostname=hostname, file_path=file_path, snapshot_id=snap.id) }}"
-               class="text-xs text-gray-500 hover:text-gray-800 font-medium hover:underline">
-              View
-            </a>
-            {% if prev %}
-            <a href="{{ url_for('web.file_diff', hostname=hostname, file_path=file_path, from_snapshot_id=prev.id, to_snapshot_id=snap.id) }}"
-               class="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline">
-              Diff vs prev
-            </a>
+               class="text-xs text-gray-500 hover:text-gray-800 font-medium hover:underline">View</a>
+            {% if snap.prev_snapshot_id %}
+            <a href="{{ url_for('web.file_diff', hostname=hostname, file_path=file_path, from_snapshot_id=snap.prev_snapshot_id, to_snapshot_id=snap.id) }}"
+               class="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline">Diff vs prev</a>
             {% else %}
             <span class="text-xs text-gray-300">first snapshot</span>
             {% endif %}
@@ -73,6 +68,28 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {% if pagination.pages > 1 %}
+  <div class="px-6 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
+    <span class="text-gray-500">
+      Showing {{ (pagination.page - 1) * pagination.per_page + 1 }}–{{ [pagination.page * pagination.per_page, pagination.total] | min }}
+      of {{ pagination.total }}
+    </span>
+    <div class="flex items-center gap-2">
+      {% if pagination.prev_url %}
+      <a href="{{ pagination.prev_url }}" class="px-3 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium">← Prev</a>
+      {% else %}
+      <span class="px-3 py-1 rounded border border-gray-100 text-gray-300 text-xs font-medium cursor-not-allowed">← Prev</span>
+      {% endif %}
+      <span class="text-gray-400 text-xs">{{ pagination.page }} / {{ pagination.pages }}</span>
+      {% if pagination.next_url %}
+      <a href="{{ pagination.next_url }}" class="px-3 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium">Next →</a>
+      {% else %}
+      <span class="px-3 py-1 rounded border border-gray-100 text-gray-300 text-xs font-medium cursor-not-allowed">Next →</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 {% else %}

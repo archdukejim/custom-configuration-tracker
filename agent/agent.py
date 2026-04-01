@@ -70,6 +70,19 @@ class ApiClient:
             logging.error("Registration failed: %s", e)
             return False
 
+    def heartbeat(self, hostname: str, agent_id: str) -> bool:
+        try:
+            resp = self.session.post(
+                f"{self.base_url}/api/v1/hosts/{hostname}/heartbeat",
+                json={"agent_id": agent_id},
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return True
+        except Exception as e:
+            logging.debug("Heartbeat failed: %s", e)
+            return False
+
     def submit(self, agent_id: str, file_path: str, file_hash: str, content: bytes) -> Optional[dict]:
         try:
             resp = self.session.post(
@@ -193,6 +206,7 @@ class Agent:
         logging.info("Starting poll loop (interval=%ds)", self.poll_interval)
         while True:
             self.scan_all()
+            self.api.heartbeat(self.hostname, self.agent_id)
             time.sleep(self.poll_interval)
 
     def _start_watchdog(self):

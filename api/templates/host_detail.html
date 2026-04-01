@@ -16,17 +16,28 @@
     <p class="text-sm text-gray-500 mt-0.5">Last seen {{ host.last_seen | timeago }}</p>
   </div>
   <div class="text-sm text-gray-500">
-    <span id="fileCount" class="font-semibold text-gray-800">{{ files | length }}</span> files tracked
+    <span class="font-semibold text-gray-800">{{ pagination.total }}</span> files tracked
   </div>
 </div>
 
-{% if files %}
+{% if pagination.total > 0 or q %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
   <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
-    <input type="text" id="fileSearch" placeholder="Filter by path…"
-           oninput="filterFiles(this.value)"
-           class="w-80 text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+    <form method="get" action="" class="flex items-center gap-3">
+      <input type="text" name="q" value="{{ q }}" placeholder="Filter by path…"
+             class="w-80 text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+      <button type="submit"
+              class="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors">
+        Search
+      </button>
+      {% if q %}
+      <a href="{{ url_for('web.host_detail', hostname=hostname) }}"
+         class="text-sm text-gray-400 hover:text-gray-700">Clear</a>
+      {% endif %}
+    </form>
   </div>
+
+  {% if files %}
   <table class="w-full text-sm">
     <thead>
       <tr class="border-b border-gray-200 text-left">
@@ -37,9 +48,9 @@
         <th class="px-5 py-3"></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-gray-100" id="fileTable">
+    <tbody class="divide-y divide-gray-100">
       {% for f in files %}
-      <tr class="hover:bg-gray-50 transition-colors duration-75" data-path="{{ f.file_path }}">
+      <tr class="hover:bg-gray-50 transition-colors duration-75">
         <td class="px-5 py-3">
           <span class="font-mono text-xs text-gray-800">{{ f.file_path }}</span>
         </td>
@@ -58,9 +69,34 @@
       {% endfor %}
     </tbody>
   </table>
-  <div id="emptyFilter" class="hidden px-5 py-8 text-center text-sm text-gray-400">
-    No files match your filter.
+
+  {% if pagination.pages > 1 %}
+  <div class="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
+    <span class="text-gray-500">
+      {{ (pagination.page - 1) * pagination.per_page + 1 }}–{{ [pagination.page * pagination.per_page, pagination.total] | min }}
+      of {{ pagination.total }} files
+    </span>
+    <div class="flex items-center gap-2">
+      {% if pagination.prev_url %}
+      <a href="{{ pagination.prev_url }}" class="px-3 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium">← Prev</a>
+      {% else %}
+      <span class="px-3 py-1 rounded border border-gray-100 text-gray-300 text-xs font-medium cursor-not-allowed">← Prev</span>
+      {% endif %}
+      <span class="text-gray-400 text-xs">{{ pagination.page }} / {{ pagination.pages }}</span>
+      {% if pagination.next_url %}
+      <a href="{{ pagination.next_url }}" class="px-3 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium">Next →</a>
+      {% else %}
+      <span class="px-3 py-1 rounded border border-gray-100 text-gray-300 text-xs font-medium cursor-not-allowed">Next →</span>
+      {% endif %}
+    </div>
   </div>
+  {% endif %}
+
+  {% else %}
+  <div class="px-5 py-8 text-center text-sm text-gray-400">
+    No files match <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{{ q }}</span>.
+  </div>
+  {% endif %}
 </div>
 
 {% else %}
@@ -69,19 +105,4 @@
   <p class="text-gray-400 text-sm mt-1">The agent will submit files as it scans monitored paths.</p>
 </div>
 {% endif %}
-
-<script>
-function filterFiles(q) {
-  q = q.toLowerCase();
-  const rows = document.querySelectorAll('#fileTable tr[data-path]');
-  let visible = 0;
-  rows.forEach(row => {
-    const match = row.dataset.path.toLowerCase().includes(q);
-    row.style.display = match ? '' : 'none';
-    if (match) visible++;
-  });
-  document.getElementById('fileCount').textContent = visible;
-  document.getElementById('emptyFilter').classList.toggle('hidden', visible > 0);
-}
-</script>
 {% endblock %}
