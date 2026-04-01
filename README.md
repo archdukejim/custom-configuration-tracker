@@ -297,3 +297,5 @@ docker compose exec postgres pg_dump -U cmdb cmdb | gzip > cmdb-backup-$(date +%
 - **Exposed port:** Remove the `ports:` mapping from `docker-compose.yml` if the web UI should not be accessible externally.
 - **Scaling:** The API runs 2 gunicorn workers by default. All state is in Postgres, so horizontal scaling behind a load balancer is straightforward.
 - **Storage growth:** `file_contents` grows unbounded. Schedule the orphan cleanup queries above (or a pg_cron job) to reclaim space.
+
+<!-- readme-version: 5e6070cf00f37545f2c88530e2a3075d9551dde6 -->
